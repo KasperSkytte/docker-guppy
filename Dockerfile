@@ -7,28 +7,33 @@ LABEL org.opencontainers.image.authors="kasper@cafekapper.dk"
 ARG PLATFORM=focal
 
 # required packages for Guppy
-ARG BUILD_PACKAGES="wget apt-transport-https lsb-release"
+ARG GUPPY_VERSION="6.4.8"
+ARG BUILD_PACKAGES="wget apt-transport-https lsb-release nano htop net-tools"
 ARG DEBIAN_FRONTEND=noninteractive
 
 # locales
 ENV LANG C.UTF-8
 ENV LC_ALL C.UTF-8
+ENV PATH $PATH:/opt/ont-guppy/bin/
+
+# guppy_basecall_server port is hardcoded to 5555
+EXPOSE 5555
 
 # add ONT repo signing key and repo, install guppy, and cleanup
 RUN apt-get update -qqy \
-  && apt-get -y install --fix-broken --no-install-recommends --no-install-suggests $BUILD_PACKAGES \
-  && wget -O- https://cdn.oxfordnanoportal.com/apt/ont-repo.pub | apt-key add - \
-  && echo "deb http://cdn.oxfordnanoportal.com/apt ${PLATFORM}-stable non-free" > /etc/apt/sources.list.d/nanoporetech.sources.list \
-  && apt-get update -qqy \
-  && apt-get install -y ont-guppy \
+  && apt-get -y install --fix-broken --no-install-recommends --no-install-suggests ${BUILD_PACKAGES} \
+  # && wget -O- https://cdn.oxfordnanoportal.com/apt/ont-repo.pub | apt-key add - \
+  # && echo "deb http://cdn.oxfordnanoportal.com/apt ${PLATFORM}-stable non-free" > /etc/apt/sources.list.d/nanoporetech.sources.list \
+  # && apt-get update -qqy \
+  # && apt-get install -y ont-guppy \
   && apt-get autoremove --purge --yes \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
-# alternatively just install from the deb file:
-#wget -q https://mirror.oxfordnanoportal.com/software/analysis/ont_guppy_${PACKAGE_VERSION}-1~bionic_amd64.deb
-
-#CMD guppy_basecall_server --config $GUPPY_CFG --port $GUPPY_PORT --allow_non_local --use_tcp --num_callers 1 --cpu_threads_per_caller 2 --ipc_threads 3 --chunks_per_runner $GUPPY_CHUNKS_PER_RUNNER --gpu_runners_per_device $GUPPY_GUP_RUNNERS_PER_DEVICE -x $GUPPY_CUDA_DEVICE
+# alternatively just install from tarball:
+RUN wget -q https://cdn.oxfordnanoportal.com/software/analysis/ont-guppy_${GUPPY_VERSION}_linux64.tar.gz -O /tmp/guppy.tar.gz \
+  && tar zxf /tmp/guppy.tar.gz -C /opt/ \
+  && rm /tmp/guppy.tar.gz
 
 ENTRYPOINT [ "guppy_basecall_server" ]
 
@@ -38,5 +43,7 @@ CMD [ \
   "--log_path", "/var/log/guppy_basecall_server/", \
   "--gpu_runners_per_device", "8", \
   "--port", "5555", \
-  "-x", "auto" \
+  "-x", "auto", \
+  "--allow_non_local", \
+  "--use_tcp" \
 ]
